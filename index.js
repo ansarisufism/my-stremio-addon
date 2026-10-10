@@ -13,7 +13,6 @@ builder.defineStreamHandler(async (args) => {
   const { type, id } = args;
 
   try {
-    // 1. Search page fetch karein IMDb ID se
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(id)}`;
     const response = await fetch(searchUrl, {
       headers: {
@@ -23,8 +22,6 @@ builder.defineStreamHandler(async (args) => {
 
     const html = await response.text();
     const $ = cheerio.load(html);
-
-    // 2. Page se video / iframe links extract karein
     const streams = [];
     
     $("iframe").each((i, el) => {
@@ -49,9 +46,7 @@ builder.defineStreamHandler(async (args) => {
       }
     });
 
-    console.log(`Found ${streams.length} streams from PikaHD scraper`);
     return { streams };
-
   } catch (err) {
     console.error("Scraper Error:", err.message);
     return { streams: [] };
