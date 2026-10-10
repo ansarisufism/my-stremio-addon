@@ -21,39 +21,37 @@ async function getTitleFromIMDb(id, type) {
 }
 
 builder.defineStreamHandler(async (args) => {
-  const { type, id, extra } = args;
+  const { type, id } = args;
 
   try {
     const title = await getTitleFromIMDb(id, type);
     if (!title) return { streams: [] };
 
-    // Season aur Episode handle karein agar series hai
-    const parts = id.split(":");
-    let searchQuery = title;
-    if (type === "series" && parts.length >= 3) {
-      const season = parts[1];
-      const episode = parts[2];
-      searchQuery = `${title} S${season.padStart(2, '0')}E${episode.padStart(2, '0')}`;
-    }
-
-    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(searchQuery)}`;
-    console.log("Searching PikaHD with query:", searchUrl);
+    // Official search engine query format
+    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
+    console.log("Official Search URL:", searchUrl);
 
     const searchRes = await fetch(searchUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      headers: { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": BASE_URL
+      }
     });
+    
     const searchHtml = await searchRes.text();
     const $ = cheerio.load(searchHtml);
 
-    // Pehla valid article/post link dhundhein
     let targetUrl = null;
-    $("article a, .result-item a, h2 a, .post-title a").each((i, el) => {
-      const href = $(el).attr("href");       if (href && href.startsWith("https://new.pikahd.co/") && !targetUrl) {         targetUrl = href;       }     });      if (!targetUrl) {       console.log("No search results found on PikaHD.");       return { streams: [] };     }      console.log("Found target page:", targetUrl);     const pageRes = await fetch(targetUrl, {       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }     });     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
+    
+    // Search results se valid post links dhoondhein
+    $("article a, .result-item a, .item a, h3 a, h2 a").each((i, el) => {
+      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {         // Ensure ye pagination ya category link nahi hai         if (!href.includes("/page/") && !href.includes("/category/")) {           targetUrl = href;         }       }     });      if (!targetUrl) {       console.log("Search engine returned no matching posts.");       return { streams: [] };     }      console.log("Found official result page:", targetUrl);     const pageRes = await fetch(targetUrl, {       headers: {          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",         "Referer": searchUrl       }     });          const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
     const streams = [];
 
+    // Player iframes extract karein
     $$("iframe").each((i, el) => {       const src = $$
 (el).attr("src");
-      if (src && !src.includes("facebook") && !src.includes("twitter")) {
+      if (src && !src.includes("facebook") && !src.includes("twitter") && !src.includes("histats")) {
         streams.push({
           name: "PikaHD",
           title: `Stream Server ${i + 1}`,
