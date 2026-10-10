@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 7000;
 
 const builder = new addonBuilder(manifest);
 
-// IMDb ID se Movie/Series Title nikalne ke liye
 async function getTitleFromIMDb(id, type) {
   try {
     const cleanId = id.split(":")[0];
@@ -25,37 +24,45 @@ builder.defineStreamHandler(async (args) => {
   const { type, id } = args;
 
   try {
-    // 1. Title get karein
     const title = await getTitleFromIMDb(id, type);
-    const searchQuery = title || id.split(":")[0];
+    if (!title) return { streams: [] };
 
-    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(searchQuery)}`;
-    console.log("Searching PikaHD for:", searchQuery);
+    // Slug banayein (jaise "Black Clover" -> "black-clover")
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const directUrl = `${BASE_URL}/${slug}/`;
 
-    const response = await fetch(searchUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-      }
+    console.log("Trying direct URL:", directUrl);
+    
+    let pageRes = await fetch(directUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
     });
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
+    // Agar direct URL na mile toh search karein
+    let pageHtml;
+    if (pageRes.ok) {
+      pageHtml = await pageRes.text();
+    } else {
+      const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      });
+      const searchHtml = await searchRes.text();
+      const $ = cheerio.load(searchHtml);
+      
+      const foundLink = $("a").filter((i, el) => {
+        const href = $(el).attr("href");         return href && href.includes(BASE_URL) && !href.includes("?s=");       }).first().attr("href");        if (!foundLink) return { streams: [] };        const subRes = await fetch(foundLink, {         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }       });       pageHtml = await subRes.text();     }      const $$ = cheerio.load(pageHtml);
     const streams = [];
 
-    // Pehla search result link pakdein
-    const firstResult = $(".result-item article .details .title a, .post-title a, article a").first().attr("href");      if (firstResult) {       const pageRes = await fetch(firstResult, {         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }       });       const pageHtml = await pageRes.text();       const $$ = cheerio.load(pageHtml);
-
-      $$("iframe").each((i, el) => {         const src = $$
+    $$("iframe").each((i, el) => {       const src = $$
 (el).attr("src");
-        if (src && !src.includes("facebook") && !src.includes("twitter")) {
-          streams.push({
-            name: "PikaHD",
-            title: `Server ${i + 1}`,
-            url: src.startsWith("//") ? `https:${src}` : src
-          });
-        }
-      });
-    }
+      if (src && !src.includes("facebook") && !src.includes("twitter")) {
+        streams.push({
+          name: "PikaHD",
+          title: `Stream Server ${i + 1}`,
+          url: src.startsWith("//") ? `https:${src}` : src
+        });
+      }
+    });
 
     return { streams };
   } catch (err) {
