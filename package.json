@@ -1,0 +1,22 @@
+{
+  "name": "generic-stremio-addon",
+  "version": "1.0.0",
+  "description": "Generic Stremio streaming addon template — fetches streams from a configurable JSON/API source",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "stremio-addon-sdk": "^1.6.10",
+    "node-fetch": "^2.7.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
