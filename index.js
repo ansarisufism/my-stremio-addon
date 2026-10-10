@@ -52,10 +52,17 @@ builder.defineStreamHandler(async (args) => {
       console.error(`Source API returned ${response.status} for ${id}`);
       return { streams: [] };
     }
+    const text = await response.text();
+    console.log("Raw response from API:", text.substring(0, 200));
 
-    const data = await response.json();
-    console.log("Source API raw response:", JSON.stringify(data)); // Vercel logs me response dekhne ke liye
-    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("API did not return valid JSON. Received HTML/Text instead.");
+      return { streams: [] };
+    }
+
     const streams = parseSourceResponse(data, args);
     return { streams };
   } catch (err) {
