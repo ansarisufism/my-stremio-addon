@@ -65,15 +65,20 @@ builder.defineStreamHandler(async (args) => {
     const url = `${SOURCE_API_URL}?type=${encodeURIComponent(
       type
     )}&id=${encodeURIComponent(id)}`;
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        ...SOURCE_API_HEADERS,
-      },
-      timeout: 10000,
-    });
+const response = await fetch(url, {
+  method: "GET",
+  headers: {
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    ...SOURCE_API_HEADERS
+  },
+  signal: controller.signal
+});
+clearTimeout(timeoutId);
+
 
     if (!response.ok) {
       console.error(`Source API returned ${response.status} for ${id}`);
