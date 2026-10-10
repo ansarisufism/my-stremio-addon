@@ -12,7 +12,7 @@ const builder = new addonBuilder(manifest);
 builder.defineStreamHandler(async (args) => {
   const { type, id } = args;
 
-   try {
+  try {
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(id)}`;
     console.log("Fetching URL:", searchUrl);
 
@@ -22,37 +22,6 @@ builder.defineStreamHandler(async (args) => {
       }
     });
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
-    const streams = [];
-    
-    $("iframe").each((i, el) => {
-      const src = $(el).attr("src");
-      if (src) {
-        streams.push({
-          name: "PikaHD",
-          title: `Stream Link ${i + 1}`,
-          url: src.startsWith("//") ? `https:${src}` : src
-        });
-      }
-    });
-
-    $("a").each((i, el) => {
-      const href = $(el).attr("href");
-      if (href && (href.includes(".mp4") || href.includes(".m3u8"))) {
-        streams.push({
-          name: "PikaHD Direct",
-          title: `Direct Link ${i + 1}`,
-          url: href
-        });
-      }
-    });
-
-    return { streams };
-  } catch (err) {
-    console.error("Scraper Error:", err.message);
-    return { streams: [] };
-  }
     const html = await response.text();
     const $ = cheerio.load(html);
     const streams = [];
