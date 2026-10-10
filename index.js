@@ -13,6 +13,7 @@ const manifest = {
   description: "PikaHD custom stream addon for Stremio",
   types: ["movie", "series"],
   idPrefixes: ["tt"],
+  resources: ["stream"],
   catalogs: []
 };
 
