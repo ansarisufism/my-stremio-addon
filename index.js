@@ -21,36 +21,34 @@ async function getTitleFromIMDb(id, type) {
 }
 
 builder.defineStreamHandler(async (args) => {
-  const { type, id } = args;
+  const { type, id, extra } = args;
 
   try {
     const title = await getTitleFromIMDb(id, type);
     if (!title) return { streams: [] };
 
-    // Slug banayein (jaise "Black Clover" -> "black-clover")
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const directUrl = `${BASE_URL}/${slug}/`;
+    // Season aur Episode handle karein agar series hai
+    const parts = id.split(":");
+    let searchQuery = title;
+    if (type === "series" && parts.length >= 3) {
+      const season = parts[1];
+      const episode = parts[2];
+      searchQuery = `${title} S${season.padStart(2, '0')}E${episode.padStart(2, '0')}`;
+    }
 
-    console.log("Trying direct URL:", directUrl);
-    
-    let pageRes = await fetch(directUrl, {
+    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(searchQuery)}`;
+    console.log("Searching PikaHD with query:", searchUrl);
+
+    const searchRes = await fetch(searchUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
     });
+    const searchHtml = await searchRes.text();
+    const $ = cheerio.load(searchHtml);
 
-    // Agar direct URL na mile toh search karein
-    let pageHtml;
-    if (pageRes.ok) {
-      pageHtml = await pageRes.text();
-    } else {
-      const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
-      const searchRes = await fetch(searchUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-      });
-      const searchHtml = await searchRes.text();
-      const $ = cheerio.load(searchHtml);
-      
-      const foundLink = $("a").filter((i, el) => {
-        const href = $(el).attr("href");         return href && href.includes(BASE_URL) && !href.includes("?s=");       }).first().attr("href");        if (!foundLink) return { streams: [] };        const subRes = await fetch(foundLink, {         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }       });       pageHtml = await subRes.text();     }      const $$ = cheerio.load(pageHtml);
+    // Pehla valid article/post link dhundhein
+    let targetUrl = null;
+    $("article a, .result-item a, h2 a, .post-title a").each((i, el) => {
+      const href = $(el).attr("href");       if (href && href.startsWith("https://new.pikahd.co/") && !targetUrl) {         targetUrl = href;       }     });      if (!targetUrl) {       console.log("No search results found on PikaHD.");       return { streams: [] };     }      console.log("Found target page:", targetUrl);     const pageRes = await fetch(targetUrl, {       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }     });     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
     const streams = [];
 
     $$("iframe").each((i, el) => {       const src = $$
