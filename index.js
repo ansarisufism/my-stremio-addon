@@ -2,10 +2,19 @@ const { addonBuilder, serveHTTP, getRouter } = require("stremio-addon-sdk");
 const express = require("express");
 const fetch = require("node-fetch");
 const cheerio = require("cheerio");
-const manifest = require("./manifest.json");
 
 const BASE_URL = "https://new.pikahd.co";
 const PORT = process.env.PORT || 7000;
+
+const manifest = {
+  id: "org.pikahdstream",
+  version: "1.0.0",
+  name: "PikaHD Streams",
+  description: "PikaHD custom stream addon for Stremio",
+  types: ["movie", "series"],
+  idPrefixes: ["tt"],
+  catalogs: []
+};
 
 const builder = new addonBuilder(manifest);
 
@@ -27,10 +36,7 @@ builder.defineStreamHandler(async (args) => {
     const title = await getTitleFromIMDb(id, type);
     if (!title) return { streams: [] };
 
-    // Official search engine query format
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
-    console.log("Official Search URL:", searchUrl);
-
     const searchRes = await fetch(searchUrl, {
       headers: { 
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -42,13 +48,10 @@ builder.defineStreamHandler(async (args) => {
     const $ = cheerio.load(searchHtml);
 
     let targetUrl = null;
-    
-    // Search results se valid post links dhoondhein
     $("article a, .result-item a, .item a, h3 a, h2 a").each((i, el) => {
-      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {         // Ensure ye pagination ya category link nahi hai         if (!href.includes("/page/") && !href.includes("/category/")) {           targetUrl = href;         }       }     });      if (!targetUrl) {       console.log("Search engine returned no matching posts.");       return { streams: [] };     }      console.log("Found official result page:", targetUrl);     const pageRes = await fetch(targetUrl, {       headers: {          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",         "Referer": searchUrl       }     });          const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
+      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {         if (!href.includes("/page/") && !href.includes("/category/")) {           targetUrl = href;         }       }     });      if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: {          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",         "Referer": searchUrl       }     });          const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
     const streams = [];
 
-    // Player iframes extract karein
     $$("iframe").each((i, el) => {       const src = $$
 (el).attr("src");
       if (src && !src.includes("facebook") && !src.includes("twitter") && !src.includes("histats")) {
@@ -62,7 +65,6 @@ builder.defineStreamHandler(async (args) => {
 
     return { streams };
   } catch (err) {
-    console.error("Scraper Error:", err.message);
     return { streams: [] };
   }
 });
