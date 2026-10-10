@@ -1,19 +1,17 @@
 {
   "name": "generic-stremio-addon",
   "version": "1.0.0",
-  "description": "Generic Stremio streaming addon template — fetches streams from a configurable JSON/API source",
+  "description": "Generic Stremio streaming addon template – fetches streams from a configurable JSON/API source",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
-"dependencies": {
-  "express": "^4.18.2",
-  "node-fetch": "^2.6.7",
-  "stremio-addon-sdk": "^1.6.0",
-  "cheerio": "^1.0.0-rc.12"
-}
-
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "stremio-addon-sdk": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
