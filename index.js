@@ -9,44 +9,53 @@ const PORT = process.env.PORT || 7000;
 
 const builder = new addonBuilder(manifest);
 
+// IMDb ID se Movie/Series Title nikalne ke liye
+async function getTitleFromIMDb(id, type) {
+  try {
+    const cleanId = id.split(":")[0];
+    const res = await fetch(`https://v3-cinemeta.strem.io/meta/${type}/${cleanId}.json`);
+    const data = await res.json();
+    return data?.meta?.name || null;
+  } catch (err) {
+    return null;
+  }
+}
+
 builder.defineStreamHandler(async (args) => {
   const { type, id } = args;
 
   try {
-    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(id)}`;
-    console.log("Fetching URL:", searchUrl);
+    // 1. Title get karein
+    const title = await getTitleFromIMDb(id, type);
+    const searchQuery = title || id.split(":")[0];
+
+    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(searchQuery)}`;
+    console.log("Searching PikaHD for:", searchQuery);
 
     const response = await fetch(searchUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
       }
     });
 
     const html = await response.text();
     const $ = cheerio.load(html);
     const streams = [];
-    
-    $("iframe").each((i, el) => {
-      const src = $(el).attr("src");
-      if (src) {
-        streams.push({
-          name: "PikaHD",
-          title: `Stream Link ${i + 1}`,
-          url: src.startsWith("//") ? `https:${src}` : src
-        });
-      }
-    });
 
-    $("a").each((i, el) => {
-      const href = $(el).attr("href");
-      if (href && (href.includes(".mp4") || href.includes(".m3u8"))) {
-        streams.push({
-          name: "PikaHD Direct",
-          title: `Direct Link ${i + 1}`,
-          url: href
-        });
-      }
-    });
+    // Pehla search result link pakdein
+    const firstResult = $(".result-item article .details .title a, .post-title a, article a").first().attr("href");      if (firstResult) {       const pageRes = await fetch(firstResult, {         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }       });       const pageHtml = await pageRes.text();       const $$ = cheerio.load(pageHtml);
+
+      $$("iframe").each((i, el) => {         const src = $$
+(el).attr("src");
+        if (src && !src.includes("facebook") && !src.includes("twitter")) {
+          streams.push({
+            name: "PikaHD",
+            title: `Server ${i + 1}`,
+            url: src.startsWith("//") ? `https:${src}` : src
+          });
+        }
+      });
+    }
 
     return { streams };
   } catch (err) {
