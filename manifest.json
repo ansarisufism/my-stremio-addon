@@ -1,0 +1,14 @@
+{
+  "id": "org.yourname.genericaddon",
+  "version": "1.0.0",
+  "name": "Generic Stream Source Addon",
+  "description": "Fetches streams from a configurable JSON/API endpoint. Point SOURCE_API_URL at any legal streaming source you have rights to use.",
+  "resources": ["stream"],
+  "types": ["movie", "series"],
+  "idPrefixes": ["tt"],
+  "catalogs": [],
+  "behaviorHints": {
+    "configurable": true,
+    "configurationRequired": false
+  }
+}
