@@ -38,7 +38,6 @@ builder.defineStreamHandler(async (args) => {
     console.log("Resolved Title:", title);
     if (!title) return { streams: [] };
 
-    // Slug format banao (jaise "jujutsu-kaisen")
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     const directUrl = `${BASE_URL}/${slug}/`;
     
@@ -51,7 +50,6 @@ builder.defineStreamHandler(async (args) => {
     if (pageRes.ok) {
       pageHtml = await pageRes.text();
     } else {
-      // Agar direct URL na mile toh search page try karo
       const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
       const searchRes = await fetch(searchUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
@@ -62,11 +60,24 @@ builder.defineStreamHandler(async (args) => {
 
       let targetUrl = null;
       $("a").each((i, el) => {
-        const href = $(el).attr("href");         if (href && href.startsWith(BASE_URL) && !targetUrl) {           if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {             targetUrl = href;           }         }       });        if (!targetUrl) return { streams: [] };       const targetRes = await fetch(targetUrl, {         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }       });       if (!targetRes.ok) return { streams: [] };       pageHtml = await targetRes.text();     }      const $$ = cheerio.load(pageHtml);
-    const streams = [];
+        const href = $(el).attr("href");
+        if (href && href.startsWith(BASE_URL) && !targetUrl) {
+          if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {
+            targetUrl = href;
+          }
+        }
+      });
 
-    $$("iframe").each((i, el) => {       const src = $$
-(el).attr("src");
+      if (!targetUrl) return { streams: [] };
+      const targetRes = await fetch(targetUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      });
+      if (!targetRes.ok) return { streams: [] };
+      pageHtml = await targetRes.text();
+    }
+
+    const $$ = cheerio.load(pageHtml);     const streams = [];      // Iframe, embed aur video sources sabhi ko check karein     $$("iframe, embed, video source").each((i, el) => {
+      const src = $$(el).attr("src") \vert{}\vert{} $$(el).attr("data-src");
       if (src && !src.includes("facebook") && !src.includes("twitter") && !src.includes("histats")) {
         streams.push({
           name: "PikaHD",
@@ -75,6 +86,22 @@ builder.defineStreamHandler(async (args) => {
         });
       }
     });
+
+    // Agar direct links ya server buttons hain toh unhe bhi dhoondhein
+    if (streams.length === 0) {
+      $$("a").each((i, el) => {
+        const href = $$(el).attr("href");         const text = $$(el).text().toLowerCase();
+        if (href && (href.includes("embed") || href.includes("player") || text.includes("server") || text.includes("watch"))) {
+          if (!href.startsWith("#") && !href.startsWith("javascript")) {
+            streams.push({
+              name: "PikaHD",
+              title: `Server Link ${i + 1}`,
+              url: href.startsWith("//") ? `https:${href}` : href
+            });
+          }
+        }
+      });
+    }
 
     console.log("Streams found:", streams.length);
     return { streams };
