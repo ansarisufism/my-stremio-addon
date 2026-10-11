@@ -35,25 +35,28 @@ builder.defineStreamHandler(async (args) => {
 
   try {
     const title = await getTitleFromIMDb(id, type);
+    console.log("Resolved Title:", title);
     if (!title) return { streams: [] };
 
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
-    
     const searchRes = await fetch(searchUrl, {
       headers: { 
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-      },
-      timeout: 5000
+      }
     });
     
-    if (!searchRes.ok) return { streams: [] };
+    if (!searchRes.ok) {
+      console.log("Search failed with status:", searchRes.status);
+      return { streams: [] };
+    }
+    
     const searchHtml = await searchRes.text();
     const $ = cheerio.load(searchHtml);
 
     let targetUrl = null;
-    $("article a, .result-item a, .item a, h3 a, h2 a").each((i, el) => {
-      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {         if (!href.includes("/page/") && !href.includes("/category/")) {           targetUrl = href;         }       }     });      if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: {          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"       },       timeout: 5000     });      if (!pageRes.ok) return { streams: [] };     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
+    $("a").each((i, el) => {
+      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {         if (!href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {           targetUrl = href;         }       }     });      console.log("Target URL found:", targetUrl);     if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }     });      if (!pageRes.ok) return { streams: [] };     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
     const streams = [];
 
     $$("iframe").each((i, el) => {       const src = $$
@@ -67,8 +70,10 @@ builder.defineStreamHandler(async (args) => {
       }
     });
 
+    console.log("Streams found:", streams.length);
     return { streams };
   } catch (err) {
+    console.error("Error:", err.message);
     return { streams: [] };
   }
 });
