@@ -38,33 +38,22 @@ builder.defineStreamHandler(async (args) => {
     if (!title) return { streams: [] };
 
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
-    // Proxy use karne se Vercel block nahi hoga
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
     
-    const searchRes = await fetch(proxyUrl);
-    const searchData = await searchRes.json();
-    if (!searchData.contents) return { streams: [] };
-
-    const $ = cheerio.load(searchData.contents);
-    let targetUrl = null;
-
-    $("article a, .result-item a, .item a, h3 a, h2 a").each((i, el) => {
-      const href = $(el).attr("href");
-      if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {
-        if (!href.includes("/page/") && !href.includes("/category/")) {
-          targetUrl = href;
-        }
-      }
+    const searchRes = await fetch(searchUrl, {
+      headers: { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      },
+      timeout: 5000
     });
+    
+    if (!searchRes.ok) return { streams: [] };
+    const searchHtml = await searchRes.text();
+    const $ = cheerio.load(searchHtml);
 
-    if (!targetUrl) return { streams: [] };
-
-    const pageProxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-    const pageRes = await fetch(pageProxyUrl);
-    const pageData = await pageRes.json();
-    if (!pageData.contents) return { streams: [] };
-
-    const $$ = cheerio.load(pageData.contents);
+    let targetUrl = null;
+    $("article a, .result-item a, .item a, h3 a, h2 a").each((i, el) => {
+      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {         if (!href.includes("/page/") && !href.includes("/category/")) {           targetUrl = href;         }       }     });      if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: {          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"       },       timeout: 5000     });      if (!pageRes.ok) return { streams: [] };     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
     const streams = [];
 
     $$("iframe").each((i, el) => {       const src = $$
