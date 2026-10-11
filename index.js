@@ -38,21 +38,31 @@ builder.defineStreamHandler(async (args) => {
     console.log("Resolved Title:", title);
     if (!title) return { streams: [] };
 
-    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
-    const searchRes = await fetch(searchUrl, {
-      headers: { 
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-      }
-    });
+    // Slug format banao (jaise "jujutsu-kaisen")
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const directUrl = `${BASE_URL}/${slug}/`;
     
-    if (!searchRes.ok) return { streams: [] };
-    const searchHtml = await searchRes.text();
-    const $ = cheerio.load(searchHtml);
+    console.log("Trying Direct URL:", directUrl);
+    let pageRes = await fetch(directUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+    });
 
-    let targetUrl = null;
-    $("a").each((i, el) => {
-      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !targetUrl) {         if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {           targetUrl = href;         }       }     });      console.log("Target URL found:", targetUrl);     if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }     });      if (!pageRes.ok) return { streams: [] };     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
+    let pageHtml = "";
+    if (pageRes.ok) {
+      pageHtml = await pageRes.text();
+    } else {
+      // Agar direct URL na mile toh search page try karo
+      const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      });
+      if (!searchRes.ok) return { streams: [] };
+      const searchHtml = await searchRes.text();
+      const $ = cheerio.load(searchHtml);
+
+      let targetUrl = null;
+      $("a").each((i, el) => {
+        const href = $(el).attr("href");         if (href && href.startsWith(BASE_URL) && !targetUrl) {           if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {             targetUrl = href;           }         }       });        if (!targetUrl) return { streams: [] };       const targetRes = await fetch(targetUrl, {         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }       });       if (!targetRes.ok) return { streams: [] };       pageHtml = await targetRes.text();     }      const $$ = cheerio.load(pageHtml);
     const streams = [];
 
     $$("iframe").each((i, el) => {       const src = $$
