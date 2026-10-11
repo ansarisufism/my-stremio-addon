@@ -38,19 +38,33 @@ builder.defineStreamHandler(async (args) => {
     if (!title) return { streams: [] };
 
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
-    const searchRes = await fetch(searchUrl, {
-      headers: { 
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": BASE_URL
+    // Proxy use karne se Vercel block nahi hoga
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
+    
+    const searchRes = await fetch(proxyUrl);
+    const searchData = await searchRes.json();
+    if (!searchData.contents) return { streams: [] };
+
+    const $ = cheerio.load(searchData.contents);
+    let targetUrl = null;
+
+    $("article a, .result-item a, .item a, h3 a, h2 a").each((i, el) => {
+      const href = $(el).attr("href");
+      if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {
+        if (!href.includes("/page/") && !href.includes("/category/")) {
+          targetUrl = href;
+        }
       }
     });
-    
-    const searchHtml = await searchRes.text();
-    const $ = cheerio.load(searchHtml);
 
-    let targetUrl = null;
-    $("article a, .result-item a, .item a, h3 a, h2 a").each((i, el) => {
-      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !href.includes("?s=") && !targetUrl) {         if (!href.includes("/page/") && !href.includes("/category/")) {           targetUrl = href;         }       }     });      if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: {          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",         "Referer": searchUrl       }     });          const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
+    if (!targetUrl) return { streams: [] };
+
+    const pageProxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+    const pageRes = await fetch(pageProxyUrl);
+    const pageData = await pageRes.json();
+    if (!pageData.contents) return { streams: [] };
+
+    const $$ = cheerio.load(pageData.contents);
     const streams = [];
 
     $$("iframe").each((i, el) => {       const src = $$
