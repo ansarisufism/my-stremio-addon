@@ -38,7 +38,6 @@ builder.defineStreamHandler(async (args) => {
     console.log("Resolved Title:", title);
     if (!title) return { streams: [] };
 
-    // Official search query using /?s=QUERY
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
     const searchRes = await fetch(searchUrl, {
       headers: { 
@@ -52,18 +51,16 @@ builder.defineStreamHandler(async (args) => {
     const $ = cheerio.load(searchHtml);
 
     let targetUrl = null;
-    
-    // WordPress search result selectors target karo
     const selectors = [
       "article h2 a", 
       "article h3 a", 
       ".result-item a", 
       ".item.movies h3 a", 
       ".item.tvshows h3 a", 
-      ".search-page .result-item a",
       "h2.title a",
       "h3.title a",
-      "article a"
+      "article a",
+      "a"
     ];
 
     for (const sel of selectors) {
@@ -86,7 +83,7 @@ builder.defineStreamHandler(async (args) => {
     });
     if (!pageRes.ok) return { streams: [] };
     const pageHtml = await pageRes.text();
-    const $$ = cheerio.load(pageHtml);     const streams = [];      // Series ke liye specific episode ya sabhi active streams/iframes scan karo     let subPageUrl = null;     if (type === "series" && id.includes(":")) {       const parts = id.split(":");       const seasonNum = parts[1];       const epNum = parts[2];              $$("a").each((i, el) => {
+    const $$ = cheerio.load(pageHtml);     const streams = [];      let subPageUrl = null;     if (type === "series" && id.includes(":")) {       const parts = id.split(":");       const seasonNum = parts[1];       const epNum = parts[2];              $$("a").each((i, el) => {
         const text = $$(el).text().toLowerCase();         const href = $$(el).attr("href");
         if (href && (text.includes(`${seasonNum}x${epNum}`) || text.includes(`s${seasonNum} e${epNum}`) || text.includes(`episode ${epNum}`))) {
           if (!subPageUrl) subPageUrl = href;
