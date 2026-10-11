@@ -77,7 +77,9 @@ builder.defineStreamHandler(async (args) => {
     }
 
     const $$ = cheerio.load(pageHtml);     const streams = [];      $$("iframe, embed, video source").each((i, el) => {
-      const src = $$(el).attr("src") \vert{}\vert{} $$(el).attr("data-src");
+      let src = $$(el).attr("src");       if (!src) {         src = $$(el).attr("data-src");
+      }
+      
       if (src && !src.includes("facebook") && !src.includes("twitter") && !src.includes("histats")) {
         streams.push({
           name: "PikaHD",
