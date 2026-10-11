@@ -31,54 +31,51 @@ async function getTitleFromIMDb(id, type) {
 }
 
 builder.defineStreamHandler(async (args) => {
-  const { type, id } = args;
+  const { type, id, extra } = args;
 
   try {
     const title = await getTitleFromIMDb(id, type);
     console.log("Resolved Title:", title);
     if (!title) return { streams: [] };
 
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    const directUrl = `${BASE_URL}/${slug}/`;
-    
-    console.log("Trying Direct URL:", directUrl);
-    let pageRes = await fetch(directUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-    });
-
-    let pageHtml = "";
-    if (pageRes.ok) {
-      pageHtml = await pageRes.text();
-    } else {
-      const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
-      const searchRes = await fetch(searchUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-      });
-      if (!searchRes.ok) return { streams: [] };
-      const searchHtml = await searchRes.text();
-      const $ = cheerio.load(searchHtml);
-
-      let targetUrl = null;
-      $("a").each((i, el) => {
-        const href = $(el).attr("href");
-        if (href && href.startsWith(BASE_URL) && !targetUrl) {
-          if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {
-            targetUrl = href;
-          }
-        }
-      });
-
-      if (!targetUrl) return { streams: [] };
-      const targetRes = await fetch(targetUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-      });
-      if (!targetRes.ok) return { streams: [] };
-      pageHtml = await targetRes.text();
+    let query = title;
+    // Agar series hai aur season/episode diya hai toh query me add karo
+    if (type === "series" && id.includes(":")) {
+      const parts = id.split(":");
+      if (parts.length >= 3) {
+        query = `${title} Season ${parts[1]} Episode ${parts[2]}`;
+      }
     }
 
-    const $$ = cheerio.load(pageHtml);     const streams = [];      $$("iframe, embed, video source").each((i, el) => {
-      let src = $$(el).attr("src");       if (!src) {         src = $$(el).attr("data-src");
+    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
+    const searchRes = await fetch(searchUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+    });
+    
+    if (!searchRes.ok) return { streams: [] };
+    const searchHtml = await searchRes.text();
+    const $ = cheerio.load(searchHtml);
+
+    let targetUrl = null;
+    $("a").each((i, el) => {
+      const href = $(el).attr("href");
+      if (href && href.startsWith(BASE_URL) && !targetUrl) {
+        if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {
+          targetUrl = href;
+        }
       }
+    });
+
+    console.log("Target URL found:", targetUrl);
+    if (!targetUrl) return { streams: [] };
+
+    const pageRes = await fetch(targetUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+    });
+    if (!pageRes.ok) return { streams: [] };
+    const pageHtml = await pageRes.text();
+    const $$ = cheerio.load(pageHtml);     const streams = [];      $$("iframe, embed, video source").each((i, el) => {
+      let src = $$(el).attr("src");       if (!src) src = $$(el).attr("data-src");
       
       if (src && !src.includes("facebook") && !src.includes("twitter") && !src.includes("histats")) {
         streams.push({
@@ -88,21 +85,6 @@ builder.defineStreamHandler(async (args) => {
         });
       }
     });
-
-    if (streams.length === 0) {
-      $$("a").each((i, el) => {
-        const href = $$(el).attr("href");         const text = $$(el).text().toLowerCase();
-        if (href && (href.includes("embed") || href.includes("player") || text.includes("server") || text.includes("watch"))) {
-          if (!href.startsWith("#") && !href.startsWith("javascript")) {
-            streams.push({
-              name: "PikaHD",
-              title: `Server Link ${i + 1}`,
-              url: href.startsWith("//") ? `https:${href}` : href
-            });
-          }
-        }
-      });
-    }
 
     console.log("Streams found:", streams.length);
     return { streams };
