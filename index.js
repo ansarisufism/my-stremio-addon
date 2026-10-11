@@ -76,7 +76,7 @@ builder.defineStreamHandler(async (args) => {
       pageHtml = await targetRes.text();
     }
 
-    const $$ = cheerio.load(pageHtml);     const streams = [];      // Iframe, embed aur video sources sabhi ko check karein     $$("iframe, embed, video source").each((i, el) => {
+    const $$ = cheerio.load(pageHtml);     const streams = [];      $$("iframe, embed, video source").each((i, el) => {
       const src = $$(el).attr("src") \vert{}\vert{} $$(el).attr("data-src");
       if (src && !src.includes("facebook") && !src.includes("twitter") && !src.includes("histats")) {
         streams.push({
@@ -87,7 +87,6 @@ builder.defineStreamHandler(async (args) => {
       }
     });
 
-    // Agar direct links ya server buttons hain toh unhe bhi dhoondhein
     if (streams.length === 0) {
       $$("a").each((i, el) => {
         const href = $$(el).attr("href");         const text = $$(el).text().toLowerCase();
