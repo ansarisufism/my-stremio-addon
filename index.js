@@ -31,25 +31,20 @@ async function getTitleFromIMDb(id, type) {
 }
 
 builder.defineStreamHandler(async (args) => {
-  const { type, id, extra } = args;
+  const { type, id } = args;
 
   try {
     const title = await getTitleFromIMDb(id, type);
     console.log("Resolved Title:", title);
     if (!title) return { streams: [] };
 
-    let query = title;
-    // Agar series hai aur season/episode diya hai toh query me add karo
-    if (type === "series" && id.includes(":")) {
-      const parts = id.split(":");
-      if (parts.length >= 3) {
-        query = `${title} Season ${parts[1]} Episode ${parts[2]}`;
-      }
-    }
-
-    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
+    // Official search query using /?s=QUERY
+    const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
     const searchRes = await fetch(searchUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      headers: { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      }
     });
     
     if (!searchRes.ok) return { streams: [] };
@@ -57,14 +52,31 @@ builder.defineStreamHandler(async (args) => {
     const $ = cheerio.load(searchHtml);
 
     let targetUrl = null;
-    $("a").each((i, el) => {
-      const href = $(el).attr("href");
-      if (href && href.startsWith(BASE_URL) && !targetUrl) {
-        if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {
-          targetUrl = href;
+    
+    // WordPress search result selectors target karo
+    const selectors = [
+      "article h2 a", 
+      "article h3 a", 
+      ".result-item a", 
+      ".item.movies h3 a", 
+      ".item.tvshows h3 a", 
+      ".search-page .result-item a",
+      "h2.title a",
+      "h3.title a",
+      "article a"
+    ];
+
+    for (const sel of selectors) {
+      $(sel).each((i, el) => {
+        const href = $(el).attr("href");
+        if (href && href.startsWith(BASE_URL) && !targetUrl) {
+          if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {
+            targetUrl = href;
+          }
         }
-      }
-    });
+      });
+      if (targetUrl) break;
+    }
 
     console.log("Target URL found:", targetUrl);
     if (!targetUrl) return { streams: [] };
@@ -74,8 +86,26 @@ builder.defineStreamHandler(async (args) => {
     });
     if (!pageRes.ok) return { streams: [] };
     const pageHtml = await pageRes.text();
-    const $$ = cheerio.load(pageHtml);     const streams = [];      $$("iframe, embed, video source").each((i, el) => {
-      let src = $$(el).attr("src");       if (!src) src = $$(el).attr("data-src");
+    const $$ = cheerio.load(pageHtml);     const streams = [];      // Series ke liye specific episode ya sabhi active streams/iframes scan karo     let subPageUrl = null;     if (type === "series" && id.includes(":")) {       const parts = id.split(":");       const seasonNum = parts[1];       const epNum = parts[2];              $$("a").each((i, el) => {
+        const text = $$(el).text().toLowerCase();         const href = $$(el).attr("href");
+        if (href && (text.includes(`${seasonNum}x${epNum}`) || text.includes(`s${seasonNum} e${epNum}`) || text.includes(`episode ${epNum}`))) {
+          if (!subPageUrl) subPageUrl = href;
+        }
+      });
+    }
+
+    let finalHtml = pageHtml;
+    if (subPageUrl) {
+      console.log("Found Episode URL:", subPageUrl);
+      const subRes = await fetch(subPageUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      });
+      if (subRes.ok) {
+        finalHtml = await subRes.text();
+      }
+    }
+
+    const $$$= cheerio.load(finalHtml);$$$("iframe, embed, video source").each((i, el) => {       let src = $$$(el).attr("src");       if (!src) src = $$$(el).attr("data-src");
       
       if (src && !src.includes("facebook") && !src.includes("twitter") && !src.includes("histats")) {
         streams.push({
