@@ -38,7 +38,6 @@ builder.defineStreamHandler(async (args) => {
     console.log("Resolved Title:", title);
     if (!title) return { streams: [] };
 
-    // Direct search URL
     const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(title)}`;
     const searchRes = await fetch(searchUrl, {
       headers: { 
@@ -52,10 +51,8 @@ builder.defineStreamHandler(async (args) => {
     const $ = cheerio.load(searchHtml);
 
     let targetUrl = null;
-    
-    // Sabhi links check karo jo post page par le ja sakte hain
     $("a").each((i, el) => {
-      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !targetUrl) {         // Exclude search queries, pagination, categories, and home page         if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {           targetUrl = href;         }       }     });      console.log("Target URL found:", targetUrl);     if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }     });      if (!pageRes.ok) return { streams: [] };     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
+      const href = $(el).attr("href");       if (href && href.startsWith(BASE_URL) && !targetUrl) {         if (!href.includes("?") && !href.includes("/page/") && !href.includes("/category/") && href !== BASE_URL + "/") {           targetUrl = href;         }       }     });      console.log("Target URL found:", targetUrl);     if (!targetUrl) return { streams: [] };      const pageRes = await fetch(targetUrl, {       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }     });      if (!pageRes.ok) return { streams: [] };     const pageHtml = await pageRes.text();     const $$ = cheerio.load(pageHtml);
     const streams = [];
 
     $$("iframe").each((i, el) => {       const src = $$
